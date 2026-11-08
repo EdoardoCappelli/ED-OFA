@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ED-OFA: Event-based One-For-All Drone Detection, Tracking and Forecasting</title>
+<meta name="description" content="One model that detects drones in event-camera data, keeps their identity and forecasts their next 0.8 seconds, in a single forward pass per frame.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="ED-OFA: Event-based One-For-All Drone Detection, Tracking and Forecasting">
+<meta property="og:description" content="One model that detects drones in event-camera data, keeps their identity and forecasts their next 0.8 seconds.">
+<meta property="og:image" content="https://edoardocappelli.github.io/ED-OFA/static/img/social.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="static/img/favicon.svg" type="image/svg+xml">
+<style>
+:root {
+  --ink: #1F2933; --ink2: #52606D; --line: #DDE1E7; --bg: #FFFFFF; --soft: #F6F7F9; --night: #0E1116;
+  --det: #236AA3; --det-line: #2B78B5;
+  --trk: #AD4F0C; --trk-line: #E2762A;
+  --fc: #0B7A6E; --fc-line: #11998A;
+  --fus: #5B3FA3; --gt: #2E9E44;
+  --serif: "Source Serif 4", "Source Serif Pro", Georgia, "Times New Roman", serif;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.6 var(--sans); }
+a { color: var(--det); text-underline-offset: 2px; }
+.wrap { max-width: 980px; margin: 0 auto; padding: 0 20px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+header.hero { text-align: center; padding: 64px 0 28px; }
+h1 { margin: 0 0 20px; font-family: var(--serif); line-height: 1.15; }
+h1 .name { display: block; font-size: 3.4rem; font-weight: 700; letter-spacing: .01em; }
+h1 .sub { display: block; font-size: 1.8rem; font-weight: 500; margin-top: 4px; }
+.authors { font-size: 1.15rem; margin: 0 0 6px; }
+.authors span { white-space: nowrap; }
+.affil { color: var(--ink2); margin: 0; }
+.links { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 24px; }
+.btn { display: inline-flex; align-items: center; gap: 8px; padding: 9px 18px; border-radius: 999px;
+  background: var(--ink); color: #FFFFFF; text-decoration: none; font-weight: 600; font-size: .95rem; }
+.btn:hover { background: #3B4754; }
+.btn svg { width: 17px; height: 17px; }
+.btn.off { background: var(--soft); color: var(--ink2); border: 1px solid var(--line); cursor: default; }
+
+figure { margin: 0; }
+.teaser video { display: block; width: 100%; aspect-ratio: 16 / 9; background: var(--night); border-radius: 12px; }
+figcaption { font-size: .92rem; color: var(--ink2); margin-top: 10px; line-height: 1.5; }
+.c-det { color: var(--det); } .c-trk { color: var(--trk); } .c-fc { color: var(--fc); } .c-gt { color: var(--gt); }
+.tldr { font: 500 1.3rem/1.5 var(--serif); text-align: center; max-width: 780px; margin: 40px auto 36px; }
+
+section { padding: 40px 0; border-top: 1px solid var(--line); }
+h2 { font: 600 1.8rem/1.2 var(--serif); margin: 0 0 18px; }
+h3 { font-size: 1.12rem; line-height: 1.3; margin: 0 0 8px; }
+p { margin: 0 0 14px; }
+.note { font-size: .92rem; color: var(--ink2); }
+
+.diagram { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 8px 0 0; }
+.diagram svg { display: block; width: 100%; min-width: 720px; height: auto; }
+.cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 26px; }
+.card { background: var(--soft); border-radius: 12px; padding: 18px 18px 4px; border-top: 4px solid var(--c); }
+.card h3 { color: var(--ci); }
+.card p { font-size: .95rem; }
+
+.task { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 28px; align-items: start; margin: 34px 0 0; }
+.task h3 { font-size: 1.3rem; color: var(--ci); }
+.stats { display: flex; flex-direction: column; gap: 14px; }
+.stat b { display: block; font-size: 2.1rem; line-height: 1.1; color: var(--ci); }
+.stat span { color: var(--ink2); font-size: .95rem; }
+.stats p { font-size: .95rem; margin: 4px 0 0; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.shot { position: relative; }
+.shot img { display: block; width: 100%; height: auto; border-radius: 8px; background: var(--night); }
+.tag { position: absolute; left: 8px; top: 8px; background: rgba(14, 17, 22, .8); color: #E8ECF1;
+  font-size: .8rem; padding: 1px 8px; border-radius: 4px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; list-style: none; padding: 0; margin: 10px 0 0; font-size: .9rem; color: var(--ink2); }
+.legend i { display: inline-block; width: 26px; height: 4px; vertical-align: middle; margin-right: 6px; }
+.legend i.now { width: 12px; height: 12px; border-radius: 50%; background: #FFFFFF; border: 2px solid var(--ink); }
+.legend i.fut { height: 0; border-top: 4px dashed var(--gt); }
+.clips { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 34px; }
+.clips video { display: block; width: 100%; aspect-ratio: 1076 / 606; background: var(--night); border-radius: 8px; }
+.clips figcaption b { color: var(--ci); }
+
+.bib { position: relative; }
+pre { background: var(--soft); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; margin: 0;
+  overflow-x: auto; font: 14px/1.55 var(--mono); }
+.copy { position: absolute; top: 10px; right: 10px; font: 600 .82rem var(--sans); color: var(--ink); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+.copy:hover { border-color: var(--ink2); }
+footer { border-top: 1px solid var(--line); padding: 26px 0 48px; color: var(--ink2); font-size: .88rem; text-align: center; }
+
+@media (max-width: 760px) {
+  body { font-size: 16px; }
+  header.hero { padding-top: 40px; }
+  h1 .name { font-size: 2.6rem; }
+  h1 .sub { font-size: 1.35rem; }
+  .tldr { font-size: 1.12rem; }
+  .cards, .task, .clips { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<header class="hero wrap">
+  <h1><span class="name">ED-OFA</span><span class="sr">: </span><span class="sub">Event-based One-For-All Drone Detection, Tracking and Forecasting</span></h1>
+  <p class="authors"><span>Edoardo Cappelli<sup>1</sup></span>, <span>Gabriele Magrini<sup>1</sup></span>, <span>Federico Becattini<sup>2</sup></span>, <span>Luca Cultrera<sup>3</sup></span>, <span>Pietro Pala<sup>1</sup></span></p>
+  <p class="affil"><sup>1</sup>MICC (Media Integration and Communication Center), University of Florence, Italy</p>
+  <p class="affil"><sup>2</sup>University of Siena, Italy</p>
+  <p class="affil"><sup>3</sup>Leonardo S.p.A., Italy</p>
+  <nav class="links" aria-label="Resources">
+    <span class="btn off" aria-disabled="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6M9 13h8M9 17h8"/></svg>
+      Paper · coming soon</span>
+    <a class="btn" href="https://github.com/EdoardoCappelli/ED-OFA">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M8 6l-6 6 6 6M16 6l6 6-6 6"/></svg>
+      Code</a>
+    <a class="btn" href="https://miccunifi.github.io/FRED/">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>
+      FRED dataset</a>
+  </nav>
+</header>
+
+<main class="wrap">
+
+<figure class="teaser">
+  <video src="static/video/demo.mp4" poster="static/img/poster_demo.jpg" autoplay muted loop playsinline controls preload="auto"></video>
+  <figcaption>ED-OFA on FRED test sequences, in closed loop: no annotation enters the loop.
+    <b class="c-det">Blue</b>: a new drone. <b class="c-trk">Orange</b>: a tracked drone, with its identity and its past.
+    <b class="c-fc">Teal</b>: the forecast, with marks at 0.4 and 0.8 s. <b class="c-gt">Dashed green</b>: the annotated future.</figcaption>
+</figure>
+
+<p class="tldr">One detection transformer finds drones in event-camera data, keeps their identity and forecasts their next 0.8&nbsp;seconds, in a single forward pass per frame.</p>
+
+<section id="abstract">
+  <h2>Abstract</h2>
+  <p>Small, fast drones stress frame cameras with motion blur, limited dynamic range and latency. Event cameras, which report per-pixel brightness changes with microsecond resolution, suit this regime. Acting on a drone takes three answers: where it is (detection), which drone it is over time (tracking), and where it will be a few hundred milliseconds later (forecasting). Event-based systems so far answer them with separate models, which recompute features and pass detection errors downstream.</p>
+  <p>ED-OFA answers all three with one model. It extends the RT-DETRv2 detector with an explicit past: the last boxes of each tracked drone enter the decoder as a query. The box predicted for that query is the drone's present position and keeps its identity, and a forecasting head decodes its state into the next 0.8 seconds, while standard queries find new drones in the same forward pass. Event frames at three durations, fused by cross-duration attention, keep both slow and fast drones visible. At inference the past comes from the model's own outputs, so training narrows this exposure-bias gap with missing and phantom pasts, time-correlated noise calibrated on closed-loop errors, negatives for drones that have just left the scene, and a closed-loop curriculum. On FRED, in closed loop and on every test frame, ED-OFA reaches 87.3 mAP50 and 78.1 MOTA; on six test sequences its error at 0.8 seconds is about half that of a Kalman filter given the same past.</p>
+</section>
+
+<section id="method">
+  <h2>Method</h2>
+  <p>The three tasks describe one quantity: the trajectory of the drone. A detector conditioned on that trajectory also tracks and forecasts.</p>
+  <figure>
+    <div class="diagram">
+      <svg viewBox="0 0 960 462" role="img" aria-labelledby="dg-t dg-d" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif">
+        <title id="dg-t">ED-OFA architecture</title>
+        <desc id="dg-d">Event frames over 33, 165 and 330 ms go through RT-DETRv2 encoders and a cross-duration fusion. The fused features propose standard queries, which find new drones. The last 12 boxes of each tracked drone become a past query through a small MLP. One RT-DETRv2 decoder takes both kinds of query and outputs detections, tracked boxes with the same identity, and, through a forecasting head, the next 24 boxes. Tracked boxes become the past at the next frame.</desc>
+        <defs>
+          <marker id="ah-g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#52606D"/></marker>
+          <marker id="ah-b" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#2B78B5"/></marker>
+          <marker id="ah-o" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#E2762A"/></marker>
+          <marker id="ah-t" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#11998A"/></marker>
+          <marker id="ah-p" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#7353BA"/></marker>
+        </defs>
+
+        <!-- inputs -->
+        <image href="static/img/arch_33ms.jpg" x="0" y="10" width="160" height="90" preserveAspectRatio="xMidYMid slice"/>
+        <image href="static/img/arch_165ms.jpg" x="0" y="105" width="160" height="90" preserveAspectRatio="xMidYMid slice"/>
+        <image href="static/img/arch_330ms.jpg" x="0" y="200" width="160" height="90" preserveAspectRatio="xMidYMid slice"/>
+        <g font-size="12" font-weight="700" fill="#FFFFFF">
+          <rect x="6" y="16" width="50" height="20" rx="4" fill="#0E1116" fill-opacity=".8"/><text x="12" y="31">33 ms</text>
+          <rect x="6" y="111" width="58" height="20" rx="4" fill="#0E1116" fill-opacity=".8"/><text x="12" y="126">165 ms</text>
+          <rect x="6" y="206" width="58" height="20" rx="4" fill="#0E1116" fill-opacity=".8"/><text x="12" y="221">330 ms</text>
+        </g>
+        <rect x="0.5" y="330.5" width="159" height="89" fill="#FFFFFF" stroke="#DDE1E7"/>
+        <image href="static/img/arch_past.jpg" x="1" y="331" width="158" height="88" preserveAspectRatio="xMidYMid meet"/>
+        <text x="80" y="322" font-size="12" font-weight="700" fill="#AD4F0C" text-anchor="middle">last 12 boxes, 0.4 s</text>
+
+        <!-- encoders and fusion -->
+        <rect x="196" y="10" width="110" height="280" rx="12" fill="#EEF1F5" stroke="#4B5563" stroke-width="2"/>
+        <text x="251" y="139" font-size="15" font-weight="700" fill="#1F2933" text-anchor="middle">RT-DETRv2</text>
+        <text x="251" y="157" font-size="15" font-weight="700" fill="#1F2933" text-anchor="middle">encoders</text>
+        <text x="251" y="178" font-size="12" fill="#52606D" text-anchor="middle">one per window</text>
+        <rect x="330" y="10" width="124" height="280" rx="12" fill="#EDE7F8" stroke="#7353BA" stroke-width="2"/>
+        <text x="392" y="139" font-size="14" font-weight="700" fill="#5B3FA3" text-anchor="middle">Cross-duration</text>
+        <text x="392" y="157" font-size="14" font-weight="700" fill="#5B3FA3" text-anchor="middle">fusion</text>
+        <text x="392" y="178" font-size="12" fill="#52606D" text-anchor="middle">attention per scale</text>
+        <g stroke="#52606D" stroke-width="2" marker-end="url(#ah-g)">
+          <line x1="160" y1="55" x2="194" y2="55"/><line x1="160" y1="150" x2="194" y2="150"/><line x1="160" y1="245" x2="194" y2="245"/>
+          <line x1="306" y1="55" x2="328" y2="55"/><line x1="306" y1="150" x2="328" y2="150"/><line x1="306" y1="245" x2="328" y2="245"/>
+        </g>
+
+        <!-- past encoder -->
+        <rect x="196" y="330" width="110" height="90" rx="12" fill="#FDEADB" stroke="#E2762A" stroke-width="2"/>
+        <text x="251" y="365" font-size="15" font-weight="700" fill="#AD4F0C" text-anchor="middle">Past</text>
+        <text x="251" y="383" font-size="15" font-weight="700" fill="#AD4F0C" text-anchor="middle">encoder</text>
+        <text x="251" y="404" font-size="12" fill="#52606D" text-anchor="middle">MLP</text>
+        <line x1="160" y1="375" x2="194" y2="375" stroke="#E2762A" stroke-width="2" marker-end="url(#ah-o)"/>
+
+        <!-- queries -->
+        <rect x="486" y="150" width="124" height="90" rx="12" fill="#DCEAF6" stroke="#2B78B5" stroke-width="2"/>
+        <text x="548" y="185" font-size="15" font-weight="700" fill="#236AA3" text-anchor="middle">Standard</text>
+        <text x="548" y="203" font-size="15" font-weight="700" fill="#236AA3" text-anchor="middle">queries</text>
+        <text x="548" y="224" font-size="12" fill="#52606D" text-anchor="middle">top proposals</text>
+        <rect x="486" y="330" width="124" height="90" rx="12" fill="#FDEADB" stroke="#E2762A" stroke-width="2"/>
+        <text x="548" y="365" font-size="15" font-weight="700" fill="#AD4F0C" text-anchor="middle">Past</text>
+        <text x="548" y="383" font-size="15" font-weight="700" fill="#AD4F0C" text-anchor="middle">queries</text>
+        <text x="548" y="404" font-size="12" fill="#52606D" text-anchor="middle">one per drone</text>
+        <line x1="454" y1="195" x2="484" y2="195" stroke="#2B78B5" stroke-width="2" marker-end="url(#ah-b)"/>
+        <line x1="306" y1="375" x2="484" y2="375" stroke="#E2762A" stroke-width="2" marker-end="url(#ah-o)"/>
+
+        <!-- decoder -->
+        <rect x="640" y="130" width="110" height="290" rx="12" fill="#EEF1F5" stroke="#4B5563" stroke-width="2"/>
+        <text x="695" y="268" font-size="15" font-weight="700" fill="#1F2933" text-anchor="middle">RT-DETRv2</text>
+        <text x="695" y="286" font-size="15" font-weight="700" fill="#1F2933" text-anchor="middle">decoder</text>
+        <text x="695" y="307" font-size="12" fill="#52606D" text-anchor="middle">shared heads</text>
+        <path d="M454 40H695V128" fill="none" stroke="#7353BA" stroke-width="2" marker-end="url(#ah-p)"/>
+        <text x="575" y="32" font-size="12" font-style="italic" fill="#5B3FA3" text-anchor="middle">fused features</text>
+        <line x1="610" y1="195" x2="638" y2="195" stroke="#2B78B5" stroke-width="2" marker-end="url(#ah-b)"/>
+        <line x1="610" y1="375" x2="638" y2="375" stroke="#E2762A" stroke-width="2" marker-end="url(#ah-o)"/>
+
+        <!-- outputs -->
+        <rect x="780" y="130" width="160" height="70" rx="12" fill="#DCEAF6" stroke="#2B78B5" stroke-width="2"/>
+        <text x="796" y="160" font-size="15" font-weight="700" fill="#236AA3">Detection</text>
+        <text x="796" y="182" font-size="12" fill="#1F2933">finds new drones</text>
+        <rect x="780" y="240" width="160" height="70" rx="12" fill="#FDEADB" stroke="#E2762A" stroke-width="2"/>
+        <text x="796" y="270" font-size="15" font-weight="700" fill="#AD4F0C">Tracking</text>
+        <text x="796" y="292" font-size="12" fill="#1F2933">same ID, updated box</text>
+        <rect x="780" y="350" width="160" height="70" rx="12" fill="#D8F1ED" stroke="#11998A" stroke-width="2"/>
+        <text x="796" y="380" font-size="15" font-weight="700" fill="#0B7A6E">Forecasting head</text>
+        <text x="796" y="402" font-size="12" fill="#1F2933">next 24 boxes: 0.8 s</text>
+        <line x1="750" y1="165" x2="778" y2="165" stroke="#2B78B5" stroke-width="2" marker-end="url(#ah-b)"/>
+        <line x1="750" y1="275" x2="778" y2="275" stroke="#E2762A" stroke-width="2" marker-end="url(#ah-o)"/>
+        <line x1="750" y1="385" x2="778" y2="385" stroke="#11998A" stroke-width="2" marker-end="url(#ah-t)"/>
+
+        <!-- closed loop -->
+        <path d="M940 275H952V450H80V422" fill="none" stroke="#E2762A" stroke-width="2" stroke-dasharray="7 5" marker-end="url(#ah-o)"/>
+        <text x="516" y="442" font-size="13" font-style="italic" fill="#AD4F0C" text-anchor="middle">closed loop: tracked boxes become the next past</text>
+      </svg>
+    </div>
+  </figure>
+
+  <div class="cards">
+    <div class="card" style="--c: #E2762A; --ci: #AD4F0C">
+      <h3>The past is a query</h3>
+      <p>The last 12 boxes of each tracked drone, 0.4&nbsp;s, become a decoder query through a small MLP. Its box keeps the drone's identity, and its decoder state feeds a forecasting head that predicts the next 24 boxes.</p>
+    </div>
+    <div class="card" style="--c: #7353BA; --ci: #5B3FA3">
+      <h3>Three time windows</h3>
+      <p>Every step is rendered over 33, 165 and 330&nbsp;ms. A short window keeps a fast drone sharp, a long one gives a slow drone enough events; cross-duration attention weighs them at every location and scale.</p>
+    </div>
+    <div class="card" style="--c: #4B5563; --ci: #1F2933">
+      <h3>Trained for its own past</h3>
+      <p>At inference the past comes from the model itself. Training adds missing and phantom pasts, noise calibrated on closed-loop errors, negatives for drones that left, and a curriculum that swaps annotated pasts for the model's own rollouts.</p>
+    </div>
+  </div>
+</section>
+
+<section id="results">
+  <h2>Results</h2>
+  <p class="note">FRED canonical test set, every frame, including the 21% without drones. Closed loop: the past of each drone comes from the model's own tracks, never from the annotations.</p>
+
+  <div class="task" style="--ci: #236AA3">
+    <div class="grid2">
+      <figure class="shot"><img src="static/img/det_close.jpg" width="1056" height="594" loading="lazy" decoding="async" alt="A close drone inside a blue box; rotors and arms are visible."><span class="tag">Close drone</span></figure>
+      <figure class="shot"><img src="static/img/det_fast.jpg" width="1056" height="594" loading="lazy" decoding="async" alt="A fast drone at the head of its streak, inside a blue box."><span class="tag">Fast drone</span></figure>
+      <figure class="shot"><img src="static/img/det_two.jpg" width="1056" height="594" loading="lazy" decoding="async" alt="Two drones, each in a blue box, in front of trees."><span class="tag">Two drones</span></figure>
+      <figure class="shot"><img src="static/img/det_noisy.jpg" width="1056" height="594" loading="lazy" decoding="async" alt="A drone in a blue box inside a scene full of event noise."><span class="tag">Heavy event noise</span></figure>
+    </div>
+    <div class="stats">
+      <h3>Detection</h3>
+      <div class="stat"><b>OUR RESULTS vs SOTA</b><span>mAP, mAP@50</span></div>
+    </div>
+  </div>
+
+  <div class="task" style="--ci: #AD4F0C">
+    <figure class="shot">
+      <img src="static/img/tracking.jpg" width="1056" height="594" loading="lazy" decoding="async" alt="Two drones with IDs 8 and 11, each with an orange trail of its last three seconds, one crossing the whole image.">
+      <figcaption>Two drones over 3 s: each trail is one identity.</figcaption>
+    </figure>
+    <div class="stats">
+      <h3>Tracking</h3>
+      <div class="stat"><b>OUR RESULTS vs SOTA</b><span>MOTA, recall idf1</span></div>
+    </div>
+  </div>
+
+  <div class="task" style="--ci: #0B7A6E">
+    <figure class="shot">
+      <img src="static/img/forecast.jpg" width="1076" height="606" loading="lazy" decoding="async" alt="A drone starts a U-turn. The forecast in teal follows the turn and ends 9 pixels from the annotated position at 0.8 seconds.">
+      <ul class="legend">
+        <li><i style="background: #E2762A"></i>own past</li>
+        <li><i class="now"></i>now</li>
+        <li><i style="background: #11998A"></i>forecast</li>
+        <li><i class="fut"></i>annotated future</li>
+      </ul>
+      <figcaption>A drone starts a U-turn and the forecast follows it. The example is picked at a manoeuvre; the numbers are averages.</figcaption>
+    </figure>
+    <div class="stats">
+      <h3>Forecasting</h3>
+      <div class="stat"><b>OUR ADE, FDE</b></div>
+    </div>
+  </div>
+
+  <div class="clips">
+    <figure style="--ci: #236AA3">
+      <video src="static/video/detection.mp4" poster="static/img/poster_detection.jpg" muted loop playsinline controls preload="none" data-auto></video>
+      <figcaption><b>Detection.</b> A box on every drone, in every frame.</figcaption>
+    </figure>
+    <figure style="--ci: #AD4F0C">
+      <video src="static/video/tracking.mp4" poster="static/img/poster_tracking.jpg" muted loop playsinline controls preload="none" data-auto></video>
+      <figcaption><b>Tracking.</b> Each drone keeps its identity and its trail.</figcaption>
+    </figure>
+    <figure style="--ci: #0B7A6E">
+      <video src="static/video/forecasting.mp4" poster="static/img/poster_forecasting.jpg" muted loop playsinline controls preload="none" data-auto></video>
+      <figcaption><b>Forecasting.</b> The past in orange, the next 0.8 s in teal.</figcaption>
+    </figure>
+  </div>
+  <p class="note" style="margin-top: 22px">Baselines as published in their papers; evaluators differ.</p>
+</section>
+
+<section id="data">
+  <h2>Data</h2>
+  <p>All results use the event stream of <a href="https://miccunifi.github.io/FRED/">FRED</a>, the Florence RGB-Event Drone dataset (Magrini et al., ACM MM 2025): 7 hours of synchronized RGB and event recordings at 1280&times;720, with boxes and identities at 30 FPS, five drone models, night, rain and insects.</p>
+</section>
+
+<section id="bibtex">
+  <h2>BibTeX</h2>
+  <div class="bib">
+    <button class="copy" type="button" data-copy="bibtex-entry">Copy</button>
+<pre id="bibtex-entry">@misc{cappelli2026edofa,
+  title  = {{ED-OFA}: Event-based One-For-All Drone Detection, Tracking and Forecasting},
+  author = {Cappelli, Edoardo and Magrini, Gabriele and Becattini, Federico and Cultrera, Luca and Pala, Pietro},
+  year   = {2026}
+}</pre>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">ED-OFA builds on <a href="https://github.com/lyuwenyu/RT-DETR">RT-DETRv2</a> and is evaluated on <a href="https://miccunifi.github.io/FRED/">FRED</a>.</div>
+</footer>
+
+<script>
+  document.querySelectorAll("[data-copy]").forEach(function (button) {
+    button.addEventListener("click", function () {
+      var text = document.getElementById(button.dataset.copy).innerText;
+      navigator.clipboard.writeText(text).then(function () {
+        button.textContent = "Copied";
+      }, function () {
+        button.textContent = "Select and copy";
+      });
+      setTimeout(function () { button.textContent = "Copy"; }, 1600);
+    });
+  });
+
+  var still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (still) {
+    document.querySelectorAll("video[autoplay]").forEach(function (v) { v.removeAttribute("autoplay"); v.pause(); });
+  } else if ("IntersectionObserver" in window) {
+    var seen = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) { e.target.play().catch(function () {}); } else { e.target.pause(); }
+      });
+    }, { threshold: 0.4 });
+    document.querySelectorAll("video[data-auto]").forEach(function (v) { seen.observe(v); });
+  }
+</script>
+</body>
+</html>
