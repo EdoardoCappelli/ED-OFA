@@ -68,6 +68,14 @@ p { margin: 0 0 14px; }
 .stat b { display: block; font-size: 2.1rem; line-height: 1.1; color: var(--ci); }
 .stat span { color: var(--ink2); font-size: .95rem; }
 .stats p { font-size: .95rem; margin: 4px 0 0; }
+.stats p.note { font-size: .85rem; line-height: 1.5; }
+.cmp { width: 100%; border-collapse: collapse; font-size: .9rem; font-variant-numeric: tabular-nums; }
+.cmp th, .cmp td { padding: 6px 0 6px 10px; text-align: right; vertical-align: top; border-bottom: 1px solid var(--line); }
+.cmp th:first-child, .cmp td:first-child { padding-left: 0; text-align: left; }
+.cmp td + td { white-space: nowrap; }
+.cmp thead th { color: var(--ink2); font-size: .8rem; font-weight: 600; line-height: 1.3; border-bottom: 2px solid #AEB6C0; }
+.cmp small { display: block; color: var(--ink2); font-size: .78rem; font-weight: 400; line-height: 1.3; }
+.cmp tr.ours td { color: var(--ci); font-weight: 700; border-bottom: 0; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .shot { position: relative; }
 .shot img { display: block; width: 100%; height: auto; border-radius: 8px; background: var(--night); }
@@ -134,7 +142,7 @@ footer { border-top: 1px solid var(--line); padding: 26px 0 48px; color: var(--i
 <section id="abstract">
   <h2>Abstract</h2>
   <p>Small, fast drones stress frame cameras with motion blur, limited dynamic range and latency. Event cameras, which report per-pixel brightness changes with microsecond resolution, suit this regime. Acting on a drone takes three answers: where it is (detection), which drone it is over time (tracking), and where it will be a few hundred milliseconds later (forecasting). Event-based systems so far answer them with separate models, which recompute features and pass detection errors downstream.</p>
-  <p>ED-OFA answers all three with one model. It extends the RT-DETRv2 detector with an explicit past: the last boxes of each tracked drone enter the decoder as a query. The box predicted for that query is the drone's present position and keeps its identity, and a forecasting head decodes its state into the next 0.8 seconds, while standard queries find new drones in the same forward pass. Event frames at three durations, fused by cross-duration attention, keep both slow and fast drones visible. At inference the past comes from the model's own outputs, so training narrows this exposure-bias gap with missing and phantom pasts, time-correlated noise calibrated on closed-loop errors, negatives for drones that have just left the scene, and a closed-loop curriculum. On FRED, in closed loop and on every test frame, ED-OFA reaches 87.3 mAP50 and 78.1 MOTA; on six test sequences its error at 0.8 seconds is about half that of a Kalman filter given the same past.</p>
+  <p>ED-OFA answers all three with one model. It extends the RT-DETRv2 detector with an explicit past: the last boxes of each tracked drone enter the decoder as a query. The box predicted for that query is the drone's present position and keeps its identity, and a forecasting head decodes its state into the next 0.8 seconds, while standard queries find new drones in the same forward pass. Event frames at three durations, fused by cross-duration attention, keep both slow and fast drones visible. At inference the past comes from the model's own outputs, so training narrows this exposure-bias gap with missing and phantom pasts, time-correlated noise calibrated on closed-loop errors, negatives for drones that have just left the scene, and a closed-loop curriculum. On FRED, in closed loop and on every test frame, ED-OFA reaches 87.3 mAP50 and 78.1 MOTA; on the whole test set its error at 0.8 seconds is 44.7 pixels, against 81.0 for a Kalman filter given the same past.</p>
 </section>
 
 <section id="method">
@@ -259,7 +267,18 @@ footer { border-top: 1px solid var(--line); padding: 26px 0 48px; color: var(--i
     </div>
     <div class="stats">
       <h3>Detection</h3>
-      <div class="stat"><b>OUR RESULTS vs SOTA</b><span>mAP, mAP@50</span></div>
+      <div class="stat"><b>87.3</b><span>mAP@50 on every test frame</span></div>
+      <table class="cmp">
+        <thead><tr><th scope="col">Method</th><th scope="col">mAP@50:95</th><th scope="col">mAP@50</th></tr></thead>
+        <tbody>
+          <tr><td>RT-DETR</td><td>39.0</td><td>82.1</td></tr>
+          <tr><td>Faster R-CNN</td><td>43.4</td><td>85.0</td></tr>
+          <tr><td>YOLOv11</td><td>49.3</td><td>87.7</td></tr>
+          <tr><td>AHM-Net<small>RGB + events</small></td><td>51.3</td><td>89.0</td></tr>
+          <tr class="ours"><td>ED-OFA</td><td>43.8</td><td>87.3</td></tr>
+        </tbody>
+      </table>
+      <p class="note">Event input unless noted. Baselines from FRED (Magrini et al., ACM MM 2025) and AHM-Net (Niu et al., ICASSP 2026).</p>
     </div>
   </div>
 
@@ -270,7 +289,17 @@ footer { border-top: 1px solid var(--line); padding: 26px 0 48px; color: var(--i
     </figure>
     <div class="stats">
       <h3>Tracking</h3>
-      <div class="stat"><b>OUR RESULTS vs SOTA</b><span>MOTA, recall idf1</span></div>
+      <div class="stat"><b>78.1</b><span>MOTA, with no separate association step</span></div>
+      <table class="cmp">
+        <thead><tr><th scope="col">Method</th><th scope="col">MOTA</th><th scope="col">Recall</th><th scope="col">IDF1</th></tr></thead>
+        <tbody>
+          <tr><td>RT-DETR + ByteTrack</td><td>51.3</td><td>72.8</td><td>45.1</td></tr>
+          <tr><td>YOLOv11 + ByteTrack</td><td>57.1</td><td>72.2</td><td>47.6</td></tr>
+          <tr><td>Faster R-CNN + ByteTrack</td><td>64.0</td><td>83.1</td><td>45.0</td></tr>
+          <tr class="ours"><td>ED-OFA</td><td>78.1</td><td>86.7</td><td>39.8</td></tr>
+        </tbody>
+      </table>
+      <p class="note">Highest MOTA and recall; IDF1 is lower, as identities break more often. Baselines from FRED, event input.</p>
     </div>
   </div>
 
@@ -287,7 +316,15 @@ footer { border-top: 1px solid var(--line); padding: 26px 0 48px; color: var(--i
     </figure>
     <div class="stats">
       <h3>Forecasting</h3>
-      <div class="stat"><b>OUR ADE, FDE</b></div>
+      <div class="stat"><b>44.7 px</b><span>error at 0.8 s, against 81.0 for a Kalman filter</span></div>
+      <table class="cmp">
+        <thead><tr><th scope="col">Method</th><th scope="col">ADE<br>0.4 / 0.8 s</th><th scope="col">FDE<br>0.4 / 0.8 s</th></tr></thead>
+        <tbody>
+          <tr><td>Kalman filter<small>same windows and past</small></td><td>11.4 / 32.3</td><td>25.0 / 81.0</td></tr>
+          <tr class="ours"><td>ED-OFA<small>own past, closed loop</small></td><td>7.9 / 18.8</td><td>14.8 / 44.7</td></tr>
+        </tbody>
+      </table>
+      <p class="note">Box-centre error in pixels at 1280&times;720, on all 47 test sequences (108,020 windows), with the Kalman noise tuned on them. Lower than the Kalman filter on 46 of the 47 sequences. The FRED baseline (CNN + Transformer on events, annotated past) reports 83.9&nbsp;px at 0.8&nbsp;s on its own test windows.</p>
     </div>
   </div>
 
